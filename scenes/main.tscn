@@ -1,483 +1,19 @@
-[gd_scene load_steps=41 format=1]
+[gd_scene load_steps=21 format=1]
 
-[ext_resource path="res://assets/bullet.png" type="Texture" id=1]
-[ext_resource path="res://assets/planes/plane1.png" type="Texture" id=2]
-[ext_resource path="res://assets/explosion-6.png" type="Texture" id=3]
-[ext_resource path="res://assets/planes/plane2.png" type="Texture" id=4]
-[ext_resource path="res://assets/planes/plane3.png" type="Texture" id=5]
-[ext_resource path="res://assets/planes/plane4.png" type="Texture" id=6]
-[ext_resource path="res://assets/background/sky.png" type="Texture" id=7]
-[ext_resource path="res://assets/background/cloudsb.png" type="Texture" id=8]
-[ext_resource path="res://assets/ammo.png" type="Texture" id=9]
-[ext_resource path="res://assets/arrow.png" type="Texture" id=10]
-[ext_resource path="res://fonts/marck30.fnt" type="BitmapFont" id=11]
-[ext_resource path="res://fonts/marck100.fnt" type="BitmapFont" id=12]
-[ext_resource path="res://fonts/marck20.fnt" type="BitmapFont" id=13]
-[ext_resource path="res://assets/sound/shot.smp" type="Sample" id=14]
-[ext_resource path="res://assets/sound/Artofescapism_-_He_Who_Destroys_All.ogg" type="AudioStream" id=15]
+[ext_resource path="res://scripts/main.gd" type="Script" id=1]
+[ext_resource path="res://scenes/plane.tscn" type="PackedScene" id=2]
+[ext_resource path="res://assets/background/sky.png" type="Texture" id=3]
+[ext_resource path="res://scripts/generator_enemy.gd" type="Script" id=4]
+[ext_resource path="res://assets/background/cloudsb.png" type="Texture" id=5]
+[ext_resource path="res://assets/arrow.png" type="Texture" id=6]
+[ext_resource path="res://fonts/marck30.fnt" type="BitmapFont" id=7]
+[ext_resource path="res://fonts/marck100.fnt" type="BitmapFont" id=8]
+[ext_resource path="res://fonts/marck20.fnt" type="BitmapFont" id=9]
+[ext_resource path="res://assets/sound/rocket.smp" type="Sample" id=10]
+[ext_resource path="res://assets/sound/shot.smp" type="Sample" id=11]
+[ext_resource path="res://assets/sound/Artofescapism_-_He_Who_Destroys_All.ogg" type="AudioStream" id=12]
 
 [sub_resource type="GDScript" id=1]
-
-script/source = "extends Node2D
-
-var gameRuning = false
-var fail = false
-var distance = 0
-var score = 0
-
-func _ready():
-	set_fixed_process(true)
-	get_node(\"timer\").start()
-	get_node(\"cloudsTimer\").start()
-	get_node(\"ammoTimer\").start()
-	pass
-	
-func _fixed_process(delta):
-	if(gameRuning):
-		distance = distance + delta
-		get_node('distance').set_text(str(round(distance)) + ' km')
-		
-	if Input.is_action_pressed(\"ui_select\"):
-		if(fail):
-			get_tree().reload_current_scene()
-		elif(!gameRuning):
-			gameRuning = true
-			get_node('start').hide()
-			get_node('title').hide()
-			get_node('help').hide()
-			get_node('distance').show()
-			get_node('score').show()
-			get_node('ammo').show()
-			get_node('player').play()
-	pass
-
-func stopGame():
-	get_node('player').stop()
-	gameRuning = false
-	fail = true
-	get_node('arrow').hide()
-	get_node('overTimer').hide()
-	get_node('title').set_text('The End')
-	get_node('title').show()
-	get_node('start').set_text('Press Space to Reload!')
-	get_node('start').show()
-	
-	pass
-	
-func addScore(newScore):
-	score = score + newScore
-	get_node('score').set_text('Score: '+ str(score))
-	
-	pass"
-
-[sub_resource type="RectangleShape2D" id=2]
-
-custom_solver_bias = 0.0
-extents = Vector2( 4.72302, 10 )
-
-[sub_resource type="GDScript" id=3]
-
-script/source = "extends KinematicBody2D
-
-var active = false
-var speedX = 10
-var speedY = -10
-var kinSpeed = Vector2(0,0)
-
-func _ready():
-	set_fixed_process(true)
-	add_to_group('bullets')
-	pass
-
-func _fixed_process(delta):
-	if(active):
-		show()
-		move(kinSpeed * delta)
-		if(get_global_pos().x > 1250):
-			queue_free()
-		if is_colliding():
-			queue_free()
-	pass
-"
-
-[sub_resource type="RectangleShape2D" id=4]
-
-custom_solver_bias = 0.0
-extents = Vector2( 10, 10 )
-
-[sub_resource type="GDScript" id=5]
-
-script/source = "extends KinematicBody2D
-
-var main
-var maxSpeed = 350
-var kinRotate = 0
-var acc = 10
-var kinSpeed = Vector2(0,0)
-var padX
-var padY
-var fire = false
-var upper = false
-var lower = false
-var overTimer = 10
-var ammo = 50
-
-func _ready():
-	set_fixed_process(true)
-	add_to_group('player')
-	main = get_parent()
-	main.get_node('ammo').set_text(str(ammo))
-	pass
-	
-func _fixed_process(delta):
-	if main.gameRuning:
-		
-		var posX = get_pos().x
-		var posY = get_pos().y
-		if(posX < 0 || posX > 1280 || posY < 0 || posY > 720):
-			main.get_node('arrow').show()
-			main.get_node('overTimer').show()
-			main.get_node('overTimer').set_text(str(round(overTimer)))
-			overTimer = overTimer - delta
-			if(overTimer <= 0):
-				main.stopGame()
-				queue_free()
-		else:
-			overTimer = 10
-			main.get_node('arrow').hide()
-			main.get_node('overTimer').hide()
-		shooting()
-		moving(delta)
-		
-		if is_colliding():
-			if get_collider().is_in_group(\"ammo\"):
-				get_collider().queue_free()
-				ammo = ammo + 50
-				main.get_node('ammo').set_text(str(ammo))
-			if get_collider().is_in_group(\"destroy\"):
-				get_collider().plane_colision()
-				main.stopGame()
-				get_node(\"sprite\").hide()
-				get_node(\"explosion\").show()
-				get_node(\"animation\").stop_all()
-				get_node(\"animation\").play(\"explosion\")
-				get_node(\"collision\").queue_free()
-				get_node(\"animation\").connect(\"finished\", self, \"queue_free\")
-	pass
-
-func shooting():
-	if Input.is_action_pressed(\"ui_select\") and !fire and ammo > 0:
-		ammo = ammo - 1
-		main.get_node('ammo').set_text('Ammo: '+ str(ammo))
-		main.get_node('sample').play('shot')
-		var bullet = get_parent().get_node(\"plane_bullet\").duplicate()
-		bullet.active = true
-		get_parent().add_child(bullet)
-		bullet.set_pos(get_pos()+Vector2(30, -12))
-		bullet.set_rot(get_rot())
-		var bulletSpeed = Vector2(cos(kinRotate*(PI/180)), -sin(kinRotate*(PI/180))) 
-		bullet.kinSpeed = bulletSpeed * 500
-	fire = Input.is_action_pressed(\"ui_select\")
-	pass
-	
-func moving(delta):
-	if(Input.is_action_pressed(\"ui_up\") || Input.is_action_pressed(\"ui_down\") || Input.is_action_pressed(\"ui_right\") || Input.is_action_pressed(\"ui_left\")):
-		if Input.is_action_pressed(\"ui_up\"):
-			if(kinRotate < 60):
-				kinRotate = kinRotate + 1
-				rotate(kinRotate)
-			if(kinSpeed.y > -maxSpeed):
-				kinSpeed = kinSpeed + Vector2(0, -acc)
-		if Input.is_action_pressed(\"ui_down\"):
-			if(kinRotate > -60):
-				kinRotate = kinRotate - 1
-				rotate(kinRotate)
-			if(kinSpeed.y < maxSpeed):
-				kinSpeed = kinSpeed + Vector2(0, acc)
-		if Input.is_action_pressed(\"ui_left\"):
-			if(kinSpeed.x > -maxSpeed):
-				kinSpeed = kinSpeed + Vector2(-acc, 0)
-		if Input.is_action_pressed(\"ui_right\"):
-			if(kinSpeed.x < maxSpeed):
-				kinSpeed = kinSpeed + Vector2(acc, 0)
-	else:
-		kinSpeed.x = lerp(kinSpeed.x, 0, .03)
-		kinSpeed.y = lerp(kinSpeed.y, 0, .03)
-		kinRotate  = lerp(kinRotate, 0, .03)
-
-	set_rot(kinRotate * delta)
-	move(kinSpeed * delta)
-	pass"
-
-[sub_resource type="Animation" id=6]
-
-resource/name = "explosion"
-length = 0.5
-loop = false
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("explosion:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 0.5 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 7 ]
-}
-
-[sub_resource type="Animation" id=7]
-
-length = 1.0
-loop = true
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("sprite:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 1 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 7 ]
-}
-
-[sub_resource type="RectangleShape2D" id=8]
-
-custom_solver_bias = 0.0
-extents = Vector2( 16.269, 9.28571 )
-
-[sub_resource type="GDScript" id=9]
-
-script/source = "extends KinematicBody2D
-
-var active = false
-var speed = 7
-var score = 100
-
-func _ready():
-	set_fixed_process(true)
-	add_to_group('destroy')
-	add_to_group('enemy')
-	
-	if(active):
-		get_node(\"animation\").play('fly')
-		var rpos = randi()%13
-		set_pos(Vector2(1250, 10 + (60 * rpos)))
-	pass
-
-func _fixed_process(delta):
-	if(active):
-		show()
-		move(Vector2(-(speed + delta), 0))
-		if(get_global_pos().x < 0):
-			queue_free()
-		if is_colliding():
-			if get_collider().is_in_group(\"bullets\"):
-				get_parent().addScore(score)
-				explosion()
-	pass
-	
-func plane_colision():
-	explosion()
-	pass
-
-func explosion():
-	
-	get_node(\"sprite\").hide()
-	get_node(\"explosion\").show()
-	get_node(\"animation\").stop_all()
-	get_node(\"animation\").play(\"explosion\")
-	get_node(\"collision\").queue_free()
-	get_node(\"animation\").connect(\"finished\", self, \"queue_free\")
-	
-	pass
-"
-
-[sub_resource type="Animation" id=10]
-
-length = 0.5
-loop = false
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("explosion:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 0.5 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 7 ]
-}
-
-[sub_resource type="Animation" id=11]
-
-length = 1.0
-loop = true
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("sprite:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 1 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 7 ]
-}
-
-[sub_resource type="GDScript" id=12]
-
-script/source = "extends KinematicBody2D
-
-var active = false
-var speed = 10
-var score = 200
-
-func _ready():
-	set_fixed_process(true)
-	add_to_group('destroy')
-	add_to_group('enemy')
-	
-	if(active):
-		get_node(\"animation\").play('fly3')
-		var rpos = randi()%13
-		set_pos(Vector2(1250, 10 + (60 * rpos)))
-	pass
-
-func _fixed_process(delta):
-	if(active):
-		show()
-		move(Vector2(-(speed + delta), 0))
-		if(get_global_pos().x < 0):
-			queue_free()
-		if is_colliding():
-			if get_collider().is_in_group(\"bullets\"):
-				get_parent().addScore(score)
-				explosion()
-	pass
-	
-func plane_colision():
-	explosion()
-	pass
-
-func explosion():
-	
-	get_node(\"sprite\").hide()
-	get_node(\"explosion\").show()
-	get_node(\"animation\").stop_all()
-	get_node(\"animation\").play(\"explosion\")
-	get_node(\"collision\").queue_free()
-	get_node(\"animation\").connect(\"finished\", self, \"queue_free\")
-	
-	pass
-"
-
-[sub_resource type="Animation" id=13]
-
-resource/name = "explosion"
-length = 0.5
-loop = false
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("explosion:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 0.5 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 7 ]
-}
-
-[sub_resource type="Animation" id=14]
-
-length = 1.0
-loop = true
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("sprite:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 0.7 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 5 ]
-}
-
-[sub_resource type="GDScript" id=15]
-
-script/source = "extends KinematicBody2D
-
-var active = false
-var speed = 8
-var score = 200
-var corner = 0
-
-func _ready():
-	set_fixed_process(true)
-	add_to_group('destroy')
-	add_to_group('enemy')
-	
-	if(active):
-		get_node(\"animation\").play('fly4')
-		corner = randi()%2
-		if(corner):
-			set_pos(Vector2(1250, 0))
-		else:
-			set_pos(Vector2(1250, 720))
-	pass
-
-func _fixed_process(delta):
-	if(active):
-		show()
-		if(corner):
-			move(Vector2(-(speed + delta), (2 + delta)))
-		else:
-			move(Vector2(-(speed + delta), -(2 + delta)))
-		if(get_global_pos().x < 0):
-			queue_free()
-		if is_colliding():
-			if get_collider().is_in_group(\"bullets\"):
-				get_parent().addScore(score)
-				explosion()
-	pass
-	
-func plane_colision():
-	explosion()
-	pass
-
-func explosion():
-	
-	get_node(\"sprite\").hide()
-	get_node(\"explosion\").show()
-	get_node(\"animation\").stop_all()
-	get_node(\"animation\").play(\"explosion\")
-	get_node(\"collision\").queue_free()
-	get_node(\"animation\").connect(\"finished\", self, \"queue_free\")
-	
-	pass
-"
-
-[sub_resource type="Animation" id=16]
-
-resource/name = "fly4"
-length = 1.0
-loop = true
-step = 0.1
-tracks/0/type = "value"
-tracks/0/path = NodePath("sprite:frame")
-tracks/0/interp = 1
-tracks/0/imported = false
-tracks/0/keys = {
-"times": FloatArray( 0, 1 ),
-"transitions": FloatArray( 1, 1 ),
-"update": 0,
-"values": [ 0, 8 ]
-}
-
-[sub_resource type="GDScript" id=17]
 
 script/source = "extends ParallaxBackground
 
@@ -493,36 +29,23 @@ func _process(delta):
 	set_scroll_offset(Vector2(localOffset, 0))
 	pass"
 
-[sub_resource type="GDScript" id=18]
+[sub_resource type="CanvasItemShader" id=2]
 
-script/source = "extends Timer
+_code = {
+"fragment": "",
+"fragment_ofs": 0,
+"light": "",
+"light_ofs": 0,
+"vertex": "",
+"vertex_ofs": 0
+}
 
-func _ready():
+[sub_resource type="CanvasItemMaterial" id=3]
 
-	pass
+shader/shader = SubResource( 2 )
+shader/shading_mode = 0
 
-
-func _on_timer_timeout():
-	var main = get_parent()
-	if main.gameRuning:
-		stop()
-		var count = randi()%5
-		for i in range(count):
-			var r = 1
-			if(main.distance > 20):
-				r = 2
-			if(main.distance > 40):
-				r = 3
-			var en = randi()%r+1
-			var enemy = main.get_node(\"enemy\"+ str(en)).duplicate()
-			enemy.active = true
-			main.add_child(enemy)
-		set_wait_time(0.3)
-		start()
-	pass
-"
-
-[sub_resource type="GDScript" id=19]
+[sub_resource type="GDScript" id=4]
 
 script/source = "extends Timer
 
@@ -544,7 +67,7 @@ func _on_cloudsTimer_timeout():
 	pass
 "
 
-[sub_resource type="GDScript" id=20]
+[sub_resource type="GDScript" id=5]
 
 script/source = "extends Timer
 
@@ -559,7 +82,7 @@ func _on_ammoTimer_timeout():
 		stop()
 		var getAmmo = randi()%2
 		if(getAmmo):
-			var ammo = main.get_node(\"ammo_pack\").duplicate()
+			var ammo = preload(\"res://scenes/pack.tscn\").instance()
 			ammo.active = true
 			main.add_child(ammo)
 		set_wait_time(7)
@@ -567,7 +90,7 @@ func _on_ammoTimer_timeout():
 	pass
 "
 
-[sub_resource type="GDScript" id=21]
+[sub_resource type="GDScript" id=6]
 
 script/source = "extends KinematicBody2D
 
@@ -596,36 +119,7 @@ func _fixed_process(delta):
 	pass
 "
 
-[sub_resource type="RectangleShape2D" id=22]
-
-custom_solver_bias = 0.0
-extents = Vector2( 10, 10 )
-
-[sub_resource type="GDScript" id=23]
-
-script/source = "extends KinematicBody2D
-
-var active = false
-var kinSpeed = Vector2(0,300)
-
-func _ready():
-	set_fixed_process(true)
-	add_to_group('ammo')
-	if(active):
-		var rpos = randi()%22
-		set_pos(Vector2(50 + (50 * rpos), -20))
-	pass
-
-func _fixed_process(delta):
-	if(active):
-		show()
-		move(kinSpeed * delta)
-		if(get_global_pos().y > 720):
-			queue_free()
-	pass
-"
-
-[sub_resource type="GDScript" id=24]
+[sub_resource type="GDScript" id=7]
 
 script/source = "extends Sprite
 
@@ -637,277 +131,33 @@ func _ready():
 	pass
 	
 func _process(delta):
-	if main.gameRuning && has_node(\"plane\"):
+	if main.gameRuning && main.has_node(\"plane\"):
 		look_at(get_parent().get_node(\"plane\").get_pos())
 	pass"
 
-[sub_resource type="SampleLibrary" id=25]
+[sub_resource type="SampleLibrary" id=8]
 
+samples/rocket = {
+"db": 0.0,
+"pitch": 1.0,
+"priority": 0,
+"sample": ExtResource( 10 )
+}
 samples/shot = {
 "db": 0.0,
 "pitch": 1.0,
 "priority": 0,
-"sample": ExtResource( 14 )
+"sample": ExtResource( 11 )
 }
 
 [node name="main" type="Node2D"]
 
-script/script = SubResource( 1 )
+script/script = ExtResource( 1 )
 __meta__ = {
 "_edit_lock_": true
 }
 
-[node name="plane_bullet" type="KinematicBody2D" parent="."]
-
-visibility/visible = false
-transform/pos = Vector2( -517.018, 36.1762 )
-input/pickable = false
-shapes/0/shape = SubResource( 2 )
-shapes/0/transform = Matrix32( 0.43163, 0, 0, 0.103969, -0.500168, 0.00899214 )
-shapes/0/trigger = false
-collision/layers = 1
-collision/mask = 1
-collision/margin = 0.08
-script/script = SubResource( 3 )
-
-[node name="sprite" type="Sprite" parent="plane_bullet"]
-
-texture = ExtResource( 1 )
-vframes = 2
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="collision" type="CollisionShape2D" parent="plane_bullet"]
-
-transform/pos = Vector2( -0.500168, 0.00899214 )
-transform/scale = Vector2( 0.43163, 0.103969 )
-shape = SubResource( 2 )
-trigger = false
-_update_shape_index = 0
-
-[node name="plane" type="KinematicBody2D" parent="."]
-
-transform/pos = Vector2( 60, 260 )
-input/pickable = false
-shapes/0/shape = SubResource( 4 )
-shapes/0/transform = Matrix32( 2.58997, 0, 0, 1.24741, -5.82294, -3.21633 )
-shapes/0/trigger = false
-collision/layers = 1
-collision/mask = 1
-collision/margin = 0.08
-script/script = SubResource( 5 )
-
-[node name="sprite" type="Sprite" parent="plane"]
-
-texture = ExtResource( 2 )
-vframes = 8
-frame = 4
-region_rect = Rect2( 0, 0, 52, 28 )
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="animation" type="AnimationPlayer" parent="plane"]
-
-playback/process_mode = 1
-playback/default_blend_time = 0.0
-root/root = NodePath("..")
-anims/explosion = SubResource( 6 )
-anims/fly = SubResource( 7 )
-playback/active = true
-playback/speed = 1.0
-blend_times = [  ]
-autoplay = "fly"
-
-[node name="collision" type="CollisionShape2D" parent="plane"]
-
-transform/pos = Vector2( -5.82294, -3.21633 )
-transform/scale = Vector2( 2.58997, 1.24741 )
-shape = SubResource( 4 )
-trigger = false
-_update_shape_index = 0
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="explosion" type="Sprite" parent="plane"]
-
-visibility/visible = false
-transform/pos = Vector2( 9.38232, -6.18484 )
-texture = ExtResource( 3 )
-hframes = 8
-frame = 7
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="enemy1" type="KinematicBody2D" parent="."]
-
-visibility/visible = false
-transform/pos = Vector2( -83.8801, 31.6989 )
-input/pickable = false
-shapes/0/shape = SubResource( 8 )
-shapes/0/transform = Matrix32( 1.60478, 0, 0, 1.18167, 5.29706, -5.31183 )
-shapes/0/trigger = false
-collision/layers = 1
-collision/mask = 1
-collision/margin = 0.08
-script/script = SubResource( 9 )
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="sprite" type="Sprite" parent="enemy1"]
-
-texture = ExtResource( 4 )
-flip_h = true
-vframes = 8
-frame = 6
-region_rect = Rect2( 0, 0, 52, 28 )
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="animation" type="AnimationPlayer" parent="enemy1"]
-
-playback/process_mode = 1
-playback/default_blend_time = 0.0
-root/root = NodePath("..")
-anims/explosion = SubResource( 10 )
-anims/fly = SubResource( 7 )
-anims/fly2 = SubResource( 11 )
-playback/active = true
-playback/speed = 1.0
-blend_times = [  ]
-autoplay = ""
-
-[node name="collision" type="CollisionShape2D" parent="enemy1"]
-
-transform/pos = Vector2( 5.29706, -5.31183 )
-transform/scale = Vector2( 1.60478, 1.18167 )
-shape = SubResource( 8 )
-trigger = false
-_update_shape_index = 0
-
-[node name="explosion" type="Sprite" parent="enemy1"]
-
-visibility/visible = false
-transform/pos = Vector2( -4.64391, -5.97076 )
-texture = ExtResource( 3 )
-hframes = 8
-frame = 7
-
-[node name="enemy2" type="KinematicBody2D" parent="."]
-
-visibility/visible = false
-transform/pos = Vector2( -87.3857, 129.823 )
-input/pickable = false
-shapes/0/shape = SubResource( 8 )
-shapes/0/transform = Matrix32( 1.58108, 0, 0, 1.18167, 5.75371, -5.31183 )
-shapes/0/trigger = false
-collision/layers = 1
-collision/mask = 1
-collision/margin = 0.08
-script/script = SubResource( 12 )
-
-[node name="sprite" type="Sprite" parent="enemy2"]
-
-texture = ExtResource( 5 )
-flip_h = true
-vframes = 6
-frame = 2
-region_rect = Rect2( 0, 0, 52, 28 )
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="animation" type="AnimationPlayer" parent="enemy2"]
-
-playback/process_mode = 1
-playback/default_blend_time = 0.0
-root/root = NodePath("..")
-anims/explosion = SubResource( 13 )
-anims/fly = SubResource( 7 )
-anims/fly2 = SubResource( 11 )
-anims/fly3 = SubResource( 14 )
-playback/active = true
-playback/speed = 1.0
-blend_times = [  ]
-autoplay = "fly3"
-
-[node name="collision" type="CollisionShape2D" parent="enemy2"]
-
-transform/pos = Vector2( 5.75371, -5.31183 )
-transform/scale = Vector2( 1.58108, 1.18167 )
-shape = SubResource( 8 )
-trigger = false
-_update_shape_index = 0
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="explosion" type="Sprite" parent="enemy2"]
-
-visibility/visible = false
-transform/pos = Vector2( -8.95131, -5.6342 )
-texture = ExtResource( 3 )
-hframes = 8
-frame = 7
-
-[node name="enemy3" type="KinematicBody2D" parent="."]
-
-transform/pos = Vector2( -87.3857, 129.823 )
-input/pickable = false
-shapes/0/shape = SubResource( 8 )
-shapes/0/transform = Matrix32( 1.58108, 0, 0, 1.37043, 5.75371, -7.63091 )
-shapes/0/trigger = false
-collision/layers = 1
-collision/mask = 1
-collision/margin = 0.08
-script/script = SubResource( 15 )
-
-[node name="sprite" type="Sprite" parent="enemy3"]
-
-texture = ExtResource( 6 )
-flip_h = true
-vframes = 9
-frame = 6
-region_rect = Rect2( 0, 0, 52, 28 )
-__meta__ = {
-"_edit_lock_": true
-}
-
-[node name="animation" type="AnimationPlayer" parent="enemy3"]
-
-playback/process_mode = 1
-playback/default_blend_time = 0.0
-root/root = NodePath("..")
-anims/explosion = SubResource( 13 )
-anims/fly = SubResource( 7 )
-anims/fly2 = SubResource( 11 )
-anims/fly3 = SubResource( 14 )
-anims/fly4 = SubResource( 16 )
-playback/active = true
-playback/speed = 1.0
-blend_times = [  ]
-autoplay = "fly4"
-
-[node name="collision" type="CollisionShape2D" parent="enemy3"]
-
-transform/pos = Vector2( 5.75371, -7.63091 )
-transform/scale = Vector2( 1.58108, 1.37043 )
-shape = SubResource( 8 )
-trigger = false
-_update_shape_index = 0
-
-[node name="explosion" type="Sprite" parent="enemy3"]
-
-visibility/visible = false
-transform/pos = Vector2( -8.95131, -5.6342 )
-texture = ExtResource( 3 )
-hframes = 8
-frame = 7
+[node name="plane" parent="." instance=ExtResource( 2 )]
 
 [node name="background" type="ParallaxBackground" parent="."]
 
@@ -921,7 +171,7 @@ scroll/base_scale = Vector2( 1, 1 )
 scroll/limit_begin = Vector2( 0, 0 )
 scroll/limit_end = Vector2( 0, 0 )
 scroll/ignore_camera_zoom = true
-script/script = SubResource( 17 )
+script/script = SubResource( 1 )
 
 [node name="layer1" type="ParallaxLayer" parent="background"]
 
@@ -934,7 +184,8 @@ __meta__ = {
 
 [node name="Sprite" type="Sprite" parent="background/layer1"]
 
-texture = ExtResource( 7 )
+material/material = SubResource( 3 )
+texture = ExtResource( 3 )
 centered = false
 __meta__ = {
 "_edit_lock_": true
@@ -946,7 +197,7 @@ process_mode = 1
 wait_time = 1.0
 one_shot = false
 autostart = false
-script/script = SubResource( 18 )
+script/script = ExtResource( 4 )
 
 [node name="cloudsTimer" type="Timer" parent="."]
 
@@ -954,7 +205,7 @@ process_mode = 1
 wait_time = 1.0
 one_shot = false
 autostart = false
-script/script = SubResource( 19 )
+script/script = SubResource( 4 )
 
 [node name="ammoTimer" type="Timer" parent="."]
 
@@ -962,7 +213,7 @@ process_mode = 1
 wait_time = 1.0
 one_shot = false
 autostart = false
-script/script = SubResource( 20 )
+script/script = SubResource( 5 )
 
 [node name="cloud" type="KinematicBody2D" parent="."]
 
@@ -972,43 +223,19 @@ input/pickable = false
 collision/layers = 1
 collision/mask = 1
 collision/margin = 0.08
-script/script = SubResource( 21 )
+script/script = SubResource( 6 )
 
 [node name="sprite" type="Sprite" parent="cloud"]
 
-texture = ExtResource( 8 )
+texture = ExtResource( 5 )
 vframes = 5
-
-[node name="ammo_pack" type="KinematicBody2D" parent="."]
-
-transform/pos = Vector2( -51.9348, 72.6207 )
-input/pickable = false
-shapes/0/shape = SubResource( 22 )
-shapes/0/transform = Matrix32( 0.789651, 0, 0, 0.702486, 0.349754, -4.63876 )
-shapes/0/trigger = false
-collision/layers = 1
-collision/mask = 1
-collision/margin = 0.08
-script/script = SubResource( 23 )
-
-[node name="sprite" type="Sprite" parent="ammo_pack"]
-
-texture = ExtResource( 9 )
-
-[node name="colision" type="CollisionShape2D" parent="ammo_pack"]
-
-transform/pos = Vector2( 0.349754, -4.63876 )
-transform/scale = Vector2( 0.789651, 0.702486 )
-shape = SubResource( 22 )
-trigger = false
-_update_shape_index = 0
 
 [node name="arrow" type="Sprite" parent="."]
 
 visibility/visible = false
 transform/pos = Vector2( 49.8655, 675.439 )
-texture = ExtResource( 10 )
-script/script = SubResource( 24 )
+texture = ExtResource( 6 )
+script/script = SubResource( 7 )
 
 [node name="overTimer" type="Label" parent="."]
 
@@ -1021,7 +248,7 @@ margin/left = 86.0
 margin/top = 658.0
 margin/right = 108.0
 margin/bottom = 694.0
-custom_fonts/font = ExtResource( 11 )
+custom_fonts/font = ExtResource( 7 )
 custom_colors/font_color = Color( 0.714844, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 0, 0, 0, 1 )
 text = "10"
@@ -1040,7 +267,7 @@ margin/left = 6.0
 margin/top = 5.0
 margin/right = 94.0
 margin/bottom = 41.0
-custom_fonts/font = ExtResource( 11 )
+custom_fonts/font = ExtResource( 7 )
 custom_colors/font_color = Color( 0, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 1, 1, 1, 1 )
 text = "0"
@@ -1062,7 +289,7 @@ margin/left = 5.0
 margin/top = 38.0
 margin/right = 93.0
 margin/bottom = 74.0
-custom_fonts/font = ExtResource( 11 )
+custom_fonts/font = ExtResource( 7 )
 custom_colors/font_color = Color( 0, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 1, 1, 1, 1 )
 text = "B:"
@@ -1081,7 +308,7 @@ margin/left = 141.0
 margin/top = 5.0
 margin/right = 234.0
 margin/bottom = 41.0
-custom_fonts/font = ExtResource( 11 )
+custom_fonts/font = ExtResource( 7 )
 custom_colors/font_color = Color( 0, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 1, 1, 1, 1 )
 text = "Score: 0"
@@ -1102,7 +329,7 @@ margin/left = 0.0
 margin/top = 500.0
 margin/right = 1240.0
 margin/bottom = 536.0
-custom_fonts/font = ExtResource( 11 )
+custom_fonts/font = ExtResource( 7 )
 custom_colors/font_color = Color( 0, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 1, 1, 1, 1 )
 text = "Press Space to Start!"
@@ -1125,7 +352,7 @@ margin/left = 0.0
 margin/top = 200.0
 margin/right = 1242.0
 margin/bottom = 329.0
-custom_fonts/font = ExtResource( 12 )
+custom_fonts/font = ExtResource( 8 )
 custom_colors/font_color = Color( 0, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 1, 1, 1, 1 )
 text = "The Wings of Throwback"
@@ -1145,7 +372,7 @@ margin/left = 0.0
 margin/top = 540.0
 margin/right = 1240.0
 margin/bottom = 576.0
-custom_fonts/font = ExtResource( 13 )
+custom_fonts/font = ExtResource( 9 )
 custom_colors/font_color = Color( 0, 0, 0, 1 )
 custom_colors/font_color_shadow = Color( 1, 1, 1, 1 )
 text = "Move: arrows; Shoot: space."
@@ -1161,7 +388,7 @@ __meta__ = {
 [node name="sample" type="SamplePlayer" parent="."]
 
 config/polyphony = 1
-config/samples = SubResource( 25 )
+config/samples = SubResource( 8 )
 default/volume_db = 0.0
 default/pitch_scale = 1.0
 default/pan = 0.0
@@ -1177,7 +404,7 @@ default/chorus_send = 0.0
 
 [node name="player" type="StreamPlayer" parent="."]
 
-stream/stream = ExtResource( 15 )
+stream/stream = ExtResource( 12 )
 stream/play = false
 stream/loop = true
 stream/volume_db = 0.0
